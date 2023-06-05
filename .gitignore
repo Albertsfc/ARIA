@@ -1,0 +1,23 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Caches e Ambientes Virtuais
+.venv/
+venv/
+ENV/
+.pytest_cache/
+.chroma/
+
+# Bancos de Dados Locais e Relatórios
+aria_risk.db
+data/reports/
+app/rag/chroma_db/
+
+# Variáveis de ambiente
+.env
+
+# Outros
+.DS_Store
+*.log
