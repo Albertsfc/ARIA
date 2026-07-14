@@ -1,3 +1,7 @@
+"""
+Corporate Standard Module: chat
+This module is part of the ARIA core framework.
+"""
 from fastapi import APIRouter, Depends, HTTPException, Body
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -6,16 +10,26 @@ import json
 import logging
 from datetime import datetime
 
-from app.database.db_manager import get_db
+from app.database.db_manager import get_db, SessionLocal
 from app.database.models import RiskChatHistory
 from app.rag.vector_store import get_or_create_vector_store
 from app.llm_client import get_llm_client
+import contextlib
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
 @router.get("/history/{session_id}")
-def get_chat_history(session_id: str, db: Session = Depends(get_db)):
-    """Retorna as mensagens de chat ordenadas cronologicamente."""
+def get_chat_history(session_id: str, db: Session = Depends(get_db)) -> List[dict]:
+    """
+    Retorna as mensagens de chat ordenadas cronologicamente.
+    
+    Args:
+        session_id (str): ID único da sessão do usuário/analista.
+        db (Session): Sessão do banco de dados injetada via FastAPI.
+        
+    Returns:
+        List[dict]: Lista de mensagens do histórico formatadas em dicionário.
+    """
     messages = db.query(RiskChatHistory).filter(
         RiskChatHistory.session_id == session_id
     ).order_by(RiskChatHistory.created_at.asc()).all()
@@ -32,8 +46,17 @@ def get_chat_history(session_id: str, db: Session = Depends(get_db)):
     ]
 
 @router.delete("/history/{session_id}")
-def clear_chat_history(session_id: str, db: Session = Depends(get_db)):
-    """Limpa o histórico do chat de uma sessão."""
+def clear_chat_history(session_id: str, db: Session = Depends(get_db)) -> dict:
+    """
+    Limpa o histórico do chat de uma sessão.
+    
+    Args:
+        session_id (str): ID único da sessão do usuário/analista.
+        db (Session): Sessão do banco de dados.
+        
+    Returns:
+        dict: Status de deleção caso suceda.
+    """
     try:
         db.query(RiskChatHistory).filter(RiskChatHistory.session_id == session_id).delete()
         db.commit()
@@ -47,10 +70,18 @@ async def send_chat_message(
     session_id: str = Body(...),
     message: str = Body(...),
     db: Session = Depends(get_db)
-):
+) -> StreamingResponse:
     """
     Processa uma mensagem do usuário, realiza busca RAG e transmite a resposta do LLM via SSE.
     Registra a conversa na base local de histórico.
+    
+    Args:
+        session_id (str): ID da sessão.
+        message (str): Mensagem do usuário.
+        db (Session): Sessão ativa do BD.
+        
+    Returns:
+        StreamingResponse: Stream SSE com chunks da resposta.
     """
     vs = get_or_create_vector_store()
     llm = get_llm_client()
@@ -119,22 +150,25 @@ async def send_chat_message(
             yield f"data: {json.dumps({'text': error_msg})}\n\n"
             _save_assistant_msg(session_id, error_msg, citations)
 
-    def _save_assistant_msg(sess_id: str, content: str, cites: list):
-        # Abre nova sessão de banco separada para gravação segura fora do loop de requisição principal
-        db_session = SessionLocal()
-        try:
-            assistant_msg = RiskChatHistory(
-                session_id=sess_id,
-                role="assistant",
-                content=content,
-                citations=json.dumps(cites)
-            )
-            db_session.add(assistant_msg)
-            db_session.commit()
-        except Exception as err:
-            db_session.rollback()
-            logging.error(f"Erro ao salvar resposta no banco de dados: {err}")
-        finally:
-            db_session.close()
+    def _save_assistant_msg(sess_id: str, content: str, cites: list) -> None:
+        """
+        Salva assíncronamente no BD a resposta do assistente.
+        Utiliza contextlib.closing para garantir o fechamento seguro da sessão de DB
+        fora do ciclo de vida da requisição HTTP, prevenindo session leaks.
+        """
+        with contextlib.closing(SessionLocal()) as db_session:
+            try:
+                assistant_msg = RiskChatHistory(
+                    session_id=sess_id,
+                    role="assistant",
+                    content=content,
+                    citations=json.dumps(cites)
+                )
+                db_session.add(assistant_msg)
+                db_session.commit()
+            except Exception as err:
+                db_session.rollback()
+                logging.error(f"Erro ao salvar resposta no banco de dados: {err}")
 
     return StreamingResponse(sse_generator(), media_type="text/event-stream")
+
