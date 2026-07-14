@@ -18,6 +18,14 @@ app/rag/chroma_db/
 # Variáveis de ambiente
 .env
 
+# IDEs e Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
 # Outros
 .DS_Store
 *.log
+
+ARIA_SDD_harness.md
