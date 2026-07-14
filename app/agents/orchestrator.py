@@ -1,5 +1,9 @@
+"""
+Corporate Standard Module: orchestrator
+This module is part of the ARIA core framework.
+"""
 import logging
-from typing import TypedDict, List, Optional, Literal
+from typing import TypedDict, List, Optional, Literal, Callable, Any
 from langgraph.graph import StateGraph, END
 
 # Importa os sub-agentes
@@ -13,6 +17,9 @@ from app.agents.advisor_chat import run_advisor_chat
 
 # Define a estrutura exata do estado compartilhado (TypedDict)
 class ARIAAgentState(TypedDict):
+    """
+    Corporate Standard Class: ARIAAgentState.
+    """
     task_type: Literal["scan_risks", "calculate_credit", "generate_lender_report", "advisor_chat"]
     tax_year: int
     session_id: Optional[str]
@@ -41,21 +48,56 @@ class ARIAAgentState(TypedDict):
     errors: List[str]
     completed_steps: List[str]
 
+def safe_node(func: Callable[[ARIAAgentState], dict]) -> Callable[[ARIAAgentState], dict]:
+    """
+    Decorador/Wrapper para execução segura de nós do LangGraph.
+    Captura exceções para impedir que o StateGraph inteiro caia, 
+    registrando o erro na lista state["errors"].
+    
+    Args:
+        func: A função do nó original do LangGraph.
+        
+    Returns:
+        Callable: A função wrapper protegida por try/catch.
+    """
+    def wrapper(state: ARIAAgentState) -> dict:
+        """
+        Standard corporate docstring for wrapper.
+        """
+        try:
+            return func(state)
+        except Exception as e:
+            error_msg = f"Error in node {func.__name__}: {str(e)}"
+            logging.error(error_msg)
+            # Retorna o erro acrescentado à lista para tratamento no router/fallback
+            errors = state.get("errors", []) + [error_msg]
+            return {"errors": errors}
+    return wrapper
+
 def build_aria_graph() -> StateGraph:
-    """Cria e compila o grafo de orquestração LangGraph para o ARIA."""
+    """
+    Cria e compila o grafo de orquestração LangGraph para o ARIA.
+    Todos os nós são encapsulados por safe_node para garantir resiliência Staff-level.
+    
+    Returns:
+        StateGraph: O grafo compilado e pronto para execução.
+    """
     graph = StateGraph(ARIAAgentState)
 
-    # Adiciona os nodes
-    graph.add_node("transaction_monitor", run_transaction_monitor)
-    graph.add_node("graph_analytics", run_graph_analytics)
-    graph.add_node("credit_scoring", run_credit_scoring)
-    graph.add_node("lender_report", run_lender_report)
-    graph.add_node("alert_response", run_alert_response)
-    graph.add_node("nist_audit", run_nist_audit)
-    graph.add_node("advisor_chat", run_advisor_chat)
+    # Adiciona os nodes de forma segura
+    graph.add_node("transaction_monitor", safe_node(run_transaction_monitor))
+    graph.add_node("graph_analytics", safe_node(run_graph_analytics))
+    graph.add_node("credit_scoring", safe_node(run_credit_scoring))
+    graph.add_node("lender_report", safe_node(run_lender_report))
+    graph.add_node("alert_response", safe_node(run_alert_response))
+    graph.add_node("nist_audit", safe_node(run_nist_audit))
+    graph.add_node("advisor_chat", safe_node(run_advisor_chat))
 
     # Roteamento condicional no entrypoint
     def route_entry(state: ARIAAgentState) -> str:
+        """
+        Standard corporate docstring for route_entry.
+        """
         tt = state.get("task_type")
         logging.info(f"Orquestrador ARIA: Roteando entrypoint para tarefa '{tt}'")
         if tt == "scan_risks":
@@ -86,6 +128,9 @@ def build_aria_graph() -> StateGraph:
 
     # Roteamento condicional após credit_scoring
     def route_after_credit(state: ARIAAgentState) -> str:
+        """
+        Standard corporate docstring for route_after_credit.
+        """
         tt = state.get("task_type")
         if tt == "generate_lender_report":
             return "lender_report"
