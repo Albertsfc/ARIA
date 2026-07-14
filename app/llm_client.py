@@ -1,24 +1,46 @@
+"""
+Corporate Standard Module: llm_client
+This module is part of the ARIA core framework.
+"""
 import os
 import json
 import logging
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Type, TypeVar, Any
+from pydantic import BaseModel, ValidationError
 from app.config import settings
 
-class LLMClient:
-    """Cliente unificado para chamadas LLM à Anthropic Claude com fallback offline baseado em regras."""
+T = TypeVar('T', bound=BaseModel)
 
-    def __init__(self):
-        self.api_key = os.environ.get("ANTHROPIC_API_KEY") or settings.ANTHROPIC_API_KEY
-        self.model = settings.LLM_MODEL
-        self.temperature = settings.LLM_TEMPERATURE
-        self.max_tokens = settings.LLM_MAX_TOKENS
+class LLMClient:
+    """
+    Cliente unificado para chamadas LLM à Anthropic Claude com fallback offline baseado em regras.
+    Inclui suporte robusto a Structured Parsing e mitigação de alucinação de esquemas.
+    """
+
+    def __init__(self) -> None:
+        """
+        Standard corporate docstring for __init__.
+        """
+        self.api_key: str = os.environ.get("ANTHROPIC_API_KEY") or settings.ANTHROPIC_API_KEY
+        self.model: str = settings.LLM_MODEL
+        self.temperature: float = settings.LLM_TEMPERATURE
+        self.max_tokens: int = settings.LLM_MAX_TOKENS
 
     def is_llm_mode(self) -> bool:
         """Retorna True se houver chave de API configurada para usar Claude."""
         return bool(self.api_key)
 
     async def complete(self, prompt: str, system_prompt: str = "") -> str:
-        """Chamada síncrona/assíncrona de completions com fallback de regras."""
+        """
+        Chamada síncrona/assíncrona de completions com fallback de regras.
+        
+        Args:
+            prompt (str): A entrada principal do usuário ou dados.
+            system_prompt (str): Prompt de sistema (contexto/instruções).
+            
+        Returns:
+            str: O texto puro gerado pelo LLM.
+        """
         if not self.is_llm_mode():
             return self._offline_fallback(prompt, system_prompt)
 
@@ -52,6 +74,54 @@ class LLMClient:
         except Exception as e:
             logging.error(f"Exceção ao chamar LLM: {e}. Entrando em modo offline fallback.")
             return self._offline_fallback(prompt, system_prompt)
+
+    async def complete_structured(self, prompt: str, system_prompt: str, response_model: Type[T]) -> T:
+        """
+        Garante que o output do LLM siga estritamente o esquema Pydantic fornecido (Structured Parsing).
+        
+        Args:
+            prompt (str): A entrada do usuário.
+            system_prompt (str): Contexto (será injetado o schema).
+            response_model (Type[BaseModel]): A classe Pydantic para validação do JSON.
+            
+        Returns:
+            BaseModel: Uma instância validada do response_model.
+        """
+        schema_json = response_model.schema_json()
+        structured_system = (
+            f"{system_prompt}\n\n"
+            f"You MUST return ONLY a valid JSON object matching this JSON schema:\n{schema_json}\n"
+            f"Do not include markdown blocks, explanations, or any other text before or after the JSON."
+        )
+        
+        raw_text = await self.complete(prompt, system_prompt=structured_system)
+        
+        # Tentativa agressiva de encontrar e parsear o bloco JSON
+        try:
+            # Caso o LLM tenha inserido blocos de markdown ```json ... ```
+            clean_text = raw_text.strip()
+            if clean_text.startswith("```json"):
+                clean_text = clean_text[7:]
+            if clean_text.startswith("```"):
+                clean_text = clean_text[3:]
+            if clean_text.endswith("```"):
+                clean_text = clean_text[:-3]
+                
+            clean_text = clean_text.strip()
+            data = json.loads(clean_text)
+            return response_model(**data)
+        except (json.JSONDecodeError, ValidationError) as e:
+            logging.error(f"Erro de parsing estruturado ou alucinação do LLM: {e}")
+            logging.error(f"Raw output: {raw_text}")
+            
+            # Retorna um fallback robusto usando um modelo sintético/vazio se falhar
+            # Permite a progressão no LangGraph sem crashar a máquina de estados
+            logging.warning("Iniciando modo fallback estruturado instanciando schema padrão.")
+            # Um contorno: retorna valores nulos se o schema permitir, ou delega o erro pro fluxo 
+            # (neste caso, instanciaremos usando construct sem validar rigorosamente, 
+            # ou deixaremos o orchestrator tratar, dependendo da necessidade).
+            # Para segurança máxima: raise para ser tratado no try/except do orchestrator (safe_node)
+            raise ValueError(f"Failed to parse LLM structured output: {e}")
 
     async def complete_stream(self, prompt: str, system_prompt: str = "") -> AsyncGenerator[str, None]:
         """Streaming SSE das completions da Claude com fallback instantâneo."""
@@ -160,9 +230,15 @@ class LLMClient:
         )
 
 # Instância Singleton
-llm_client_instance = None
+llm_client_instance: Any = None
 
 def get_llm_client() -> LLMClient:
+    """
+    Retorna a instância singleton do LLMClient.
+    
+    Returns:
+        LLMClient: O cliente global instanciado.
+    """
     global llm_client_instance
     if llm_client_instance is None:
         llm_client_instance = LLMClient()
