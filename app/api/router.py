@@ -8,6 +8,7 @@ from app.api.credit import router as credit_router
 from app.api.graph import router as graph_router
 from app.api.chat import router as chat_router
 from app.api.system import router as system_router
+from app.api.rules import router as rules_router
 
 api_router = APIRouter()
 
@@ -17,5 +18,4 @@ api_router.include_router(credit_router)
 api_router.include_router(graph_router)
 api_router.include_router(chat_router)
 api_router.include_router(system_router)
-
-
+api_router.include_router(rules_router)

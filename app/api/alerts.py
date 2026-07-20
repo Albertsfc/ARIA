@@ -17,7 +17,7 @@ router = APIRouter(prefix="/alerts", tags=["Alerts"])
 
 @router.get("")
 def get_alerts(
-    status -> Any: Optional[str] = Query(None, description="Filtrar por open|resolved|false_positive"),
+    status: Optional[str] = Query(None, description="Filtrar por open|resolved|false_positive"),
     """
     Standard corporate docstring for get_alerts.
     """

@@ -59,6 +59,7 @@ graph TD
     E --> F["Transaction Monitor<br/>app/agents/transaction_monitor.py<br/>Isolation Forest"]
     E --> G["Graph Analytics<br/>app/agents/graph_analytics.py<br/>NetworkX"]
     E --> H["Credit Scoring<br/>app/agents/credit_scoring.py<br/>XGBoost + SHAP"]
+    E --> NC["No-Code Engine<br/>app/agents/no_code_compiler.py"]
     F --> I["Alert & Response<br/>app/agents/alert_response.py"]
     H --> J["Lender Report<br/>app/agents/lender_report.py"]
     I --> K["NIST Audit Agent<br/>app/agents/nist_audit.py"]
@@ -78,6 +79,7 @@ graph TD
 | `/api/alerts` | `GET` | Active risk alerts and anomaly flags |
 | `/api/credit` | `GET / POST` | Credit score computation and SHAP explanation |
 | `/api/graph` | `GET` | Entity graph — supplier/customer concentration map |
+| `/api/rules` | `POST / GET` | Motor No-Code: regras de linguagem natural via LLM |
 | `/api/chat` | `POST` | SSE streaming AI Advisor query (SBA RAG) |
 | `/api/system` | `GET` | System status, AI mode (`llm` or `offline`), version |
 
@@ -104,6 +106,8 @@ graph TD
 **Read-only data access.** ARIA never writes to AFIS or APEX databases. All reads are through isolated plugin connectors (`afis_reader.py`, `apex_reader.py`), ensuring zero impact on source systems.
 
 **Explainable ML.** The XGBoost credit classifier uses SHAP (SHapley Additive exPlanations) to provide per-decision feature attributions — every credit score is accompanied by a human-readable breakdown of which indicators drove the rating.
+
+**Motor No-Code.** Permite que usuários leigos insiram regras complexas de negócios em linguagem natural (ex: "Avise-me se transações maiores que $5k ocorrerem no final de semana"), as quais são automaticamente compiladas em lógicas JSON interpretáveis.
 
 **SBA-grounded reporting.** The Lender Readiness Report is generated from a RAG pipeline seeded with SBA SOP 50 10 guidelines, ensuring reports align with standard underwriting expectations.
 
@@ -227,9 +231,10 @@ ARIA/
 │   │   ├── db_manager.py
 │   │   ├── models.py
 │   │   └── schema.sql               ← Tables: risk_alerts · credit_scores · audit_log
-│   ├── plugins/
+│   │   ├── plugins/
 │   │   ├── afis_reader.py           ← Read-only AFIS connector
 │   │   ├── apex_reader.py           ← Read-only APEX connector
+│   │   ├── external_platforms.py    ← Conector mock para plataformas genéricas externas
 │   │   ├── credit_bureau.py
 │   │   └── report_generator.py
 │   ├── rag/

@@ -41,6 +41,9 @@
                 <button class="nav-btn" data-tab="chat">
                     <span class="icon">💬</span> Advisor Chat
                 </button>
+                <button class="nav-btn" data-tab="rules">
+                    <span class="icon">⚙️</span> Motor de Regras
+                </button>
             </nav>
 
             <div class="sidebar-footer">
@@ -287,6 +290,39 @@
                     </div>
                     <div class="chat-disclaimer">
                         *Aviso: Este assistente atua de forma consultiva. Para decisões financeiras críticas, consulte um CPA licenciado.
+                    </div>
+                </div>
+            </section>
+            <!-- ABA 6: NO-CODE RULES -->
+            <section id="tab-rules" class="tab-panel">
+                <header class="panel-header">
+                    <h2>Motor de Regras No-Code</h2>
+                    <p>Crie regras de negócio usando linguagem natural para o sistema monitorar.</p>
+                </header>
+
+                <div class="dashboard-card">
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label for="rule-input">Descreva a regra em linguagem natural:</label>
+                        <textarea id="rule-input" rows="3" placeholder="Ex: Avise-me se uma transação da plataforma externa for maior que 5000"></textarea>
+                        <button class="btn btn-primary" id="btn-compile-rule" style="margin-top: 10px;">Compilar Regra via IA</button>
+                    </div>
+
+                    <h3>Regras Ativas Compiladas</h3>
+                    <div class="table-container">
+                        <table class="data-table" id="rules-table">
+                            <thead>
+                                <tr>
+                                    <th>Regra Natural</th>
+                                    <th>JSON Compilado</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rules-tbody">
+                                <tr>
+                                    <td colspan="3" class="empty-state">Nenhuma regra definida ainda.</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </section>

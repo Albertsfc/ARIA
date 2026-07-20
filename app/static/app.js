@@ -46,6 +46,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 loadGraphNetwork();
             } else if (targetTab === "chat") {
                 loadChatHistory();
+            } else if (targetTab === "rules") {
+                loadRules();
             }
         });
     });
@@ -746,6 +748,73 @@ document.addEventListener("DOMContentLoaded", () => {
             sendChatMessage(btn.innerText);
         });
     });
+
+    // ==========================================
+    // 10. NO-CODE RULE ENGINE
+    // ==========================================
+    const btnCompileRule = document.getElementById("btn-compile-rule");
+    const ruleInput = document.getElementById("rule-input");
+    const rulesTbody = document.getElementById("rules-tbody");
+
+    async function loadRules() {
+        try {
+            const res = await fetch("/api/rules/");
+            const rules = await res.json();
+            
+            rulesTbody.innerHTML = "";
+            if (rules && rules.length > 0) {
+                rules.forEach((rule, index) => {
+                    const row = document.createElement("tr");
+                    row.style.animation = `fadeInTab 0.3s ease-out forwards`;
+                    row.style.animationDelay = `${index * 40}ms`;
+                    row.style.opacity = "0";
+
+                    row.innerHTML = `
+                        <td>${rule.rule_text}</td>
+                        <td><pre style="margin:0; font-size:10px; background:#f1f5f9; padding:4px; border-radius:4px; max-width:200px; overflow:hidden; text-overflow:ellipsis;">${JSON.stringify(rule.compiled_json)}</pre></td>
+                        <td><span class="badge badge-green">Ativa</span></td>
+                    `;
+                    rulesTbody.appendChild(row);
+                });
+            } else {
+                rulesTbody.innerHTML = '<tr><td colspan="3" class="empty-state">Nenhuma regra definida ainda.</td></tr>';
+            }
+        } catch (e) {
+            loggingError("Erro ao carregar regras", e);
+        }
+    }
+
+    if (btnCompileRule) {
+        btnCompileRule.addEventListener("click", async () => {
+            const text = ruleInput.value;
+            if (!text.trim()) return;
+
+            btnCompileRule.disabled = true;
+            btnCompileRule.innerText = "Compilando...";
+            showToast("O Agente IA está analisando sua regra...", "info");
+
+            try {
+                const res = await fetch("/api/rules/compile", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ rule_text: text })
+                });
+
+                if (res.ok) {
+                    showToast("Regra compilada e salva com sucesso!", "success");
+                    ruleInput.value = "";
+                    loadRules();
+                } else {
+                    showToast("Erro ao compilar regra", "error");
+                }
+            } catch (e) {
+                showToast("Falha na conexão com LLM", "error");
+            } finally {
+                btnCompileRule.disabled = false;
+                btnCompileRule.innerText = "Compilar Regra via IA";
+            }
+        });
+    }
 
     // Logging helpers
     function loggingError(message, error) {

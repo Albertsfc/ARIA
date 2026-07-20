@@ -13,7 +13,7 @@ from app.config import settings
 class SimpleTextSearchStore:
     """Fallback simples para busca textual por regex/palavras-chave em caso de ausência do ChromaDB."""
 
-    def __init__(self, file_path -> Any: Path):
+    def __init__(self, file_path: Path):
         """
         Standard corporate docstring for __init__.
         """

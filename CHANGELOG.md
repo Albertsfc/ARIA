@@ -2,6 +2,12 @@
 
 Todas as alterações notáveis neste projeto serão documentadas neste arquivo.
 
+## [0.2.0] — 2026-07-20
+### Adicionado
+- **Motor No-Code**: Interface e agente (LLM) que traduz regras de negócios em linguagem natural para JSON estruturado.
+- **Plataformas Externas**: Plugin genérico de integração que simula ingestão de dados de outras plataformas sem expor marcas registradas.
+- **Correções**: Resolvidos pequenos erros de sintaxe no roteador e no módulo RAG.
+
 ## [0.1.0] — 2026-06-15
 ### Adicionado
 - **Design System Document (SDD)**: Harness completo seguindo o padrão de 16 seções do AXIS.

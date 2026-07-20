@@ -87,4 +87,11 @@ INSERT OR IGNORE INTO aria_settings (key, value) VALUES
     ('target_debt_service_ratio', '1.25'),         -- DSCR ideal exigido por bancos
     ('experian_mock_rating', 'good');              -- Rating mock do bureau de crédito
 
-
+-- Regras No-Code definidas pelo usuário
+CREATE TABLE IF NOT EXISTS custom_rules (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    rule_text           TEXT NOT NULL,
+    compiled_json       TEXT NOT NULL,
+    is_active           BOOLEAN DEFAULT 1,
+    created_at          DATETIME DEFAULT CURRENT_TIMESTAMP
+);
